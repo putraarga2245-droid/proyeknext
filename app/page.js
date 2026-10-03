@@ -1,113 +1,98 @@
 'use client';
-import { useState, useEffect } from 'react';
+
+import { useState } from 'react';
 
 export default function Home() {
-  const [items, setItems] = useState([]);
-  const [nama, setNama] = useState('');
-  const [keterangan, setKeterangan] = useState('');
+  const [messages, setMessages] = useState([
+    { role: 'assistant', content: 'Hay aku adalah Tiara AI asal Kelurahan Amen, Kabupaten Lebong Provinsi Bengkulu, namaku Tiara dan suka kucing, ini proyek Abang ku yg punya nama Abang ku panggil aja priv 🐾' }
+  ]);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  // Ambil data saat halaman dibuka
-  const fetchItems = async () => {
-    try {
-      const res = await fetch('/api/items');
-      const json = await res.json();
-      if (json.success) setItems(json.data);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  useEffect(() => {
-    fetchItems();
-  }, []);
-
-  // Fungsi tombol "Simpan" untuk memasukkan data ke MongoDB
-  const handleSubmit = async (e) => {
+  const sendMessage = async (e) => {
     e.preventDefault();
-    if (!nama) return alert('Nama harus diisi!');
+    if (!input.trim() || loading) return;
+
+    const userMessage = input;
+    setInput('');
+    setMessages((prev) => [...prev, { role: 'user', content: userMessage }]);
+    setLoading(true);
 
     try {
-      const res = await fetch('/api/items', {
+      const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nama, keterangan }),
+        body: JSON.stringify({ prompt: userMessage }),
       });
-      const json = await res.json();
-      if (json.success) {
-        setNama('');
-        setKeterangan('');
-        fetchItems(); // Otomatis refresh daftar data
+
+      const data = await res.json();
+
+      if (data.success) {
+        setMessages((prev) => [...prev, { role: 'assistant', content: data.result }]);
       } else {
-        alert('Gagal menyimpan data');
+        setMessages((prev) => [...prev, { role: 'assistant', content: 'Maaf Abang, ada kendala teknis: ' + data.error }]);
       }
     } catch (err) {
-      console.error(err);
-    }
-  };
-
-  // Fungsi tombol "Hapus"
-  const handleDelete = async (id) => {
-    if (!confirm('Yakin ingin menghapus data ini?')) return;
-
-    try {
-      const res = await fetch(`/api/items/${id}`, {
-        method: 'DELETE',
-      });
-      const json = await res.json();
-      if (json.success) {
-        fetchItems(); // Otomatis refresh daftar data
-      }
-    } catch (err) {
-      console.error(err);
+      setMessages((prev) => [...prev, { role: 'assistant', content: 'Gagal terhubung ke server 🐾' }]);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <main style={{ padding: '20px', fontFamily: 'sans-serif', maxWidth: '500px', margin: 'auto' }}>
-      <h2>Form Input MongoDB Atlas</h2>
+    <main className="flex flex-col h-[100dvh] bg-pink-50 text-gray-800">
+      {/* Header */}
+      <header className="bg-pink-400 text-white p-4 shadow-md flex items-center justify-between shrink-0">
+        <h1 className="text-lg font-bold flex items-center gap-2">
+          <span>🐾</span> Tiara AI
+        </h1>
+        <span className="text-xs bg-pink-500 px-2 py-1 rounded-full">Online</span>
+      </header>
 
-      {/* Form dan Tombol Simpan */}
-      <form onSubmit={handleSubmit} style={{ marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+      {/* Chat Area */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {messages.map((msg, index) => (
+          <div
+            key={index}
+            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+          >
+            <div
+              className={`max-w-[80%] p-3 rounded-2xl text-sm shadow-sm ${
+                msg.role === 'user'
+                  ? 'bg-pink-500 text-white rounded-br-none'
+                  : 'bg-white text-gray-700 border border-pink-200 rounded-bl-none'
+              }`}
+            >
+              {msg.content}
+            </div>
+          </div>
+        ))}
+        {loading && (
+          <div className="flex justify-start">
+            <div className="bg-white text-pink-400 p-3 rounded-2xl text-sm border border-pink-200 animate-pulse">
+              Tiara sedang mengetik... 🐾
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Input Form - Diberi padding bawah ekstra agar aman di layar HP */}
+      <form onSubmit={sendMessage} className="p-3 bg-white border-t border-pink-200 flex gap-2 shrink-0 pb-6">
         <input
           type="text"
-          placeholder="Masukkan Nama..."
-          value={nama}
-          onChange={(e) => setNama(e.target.value)}
-          style={{ padding: '8px' }}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Ketik pesan ke Tiara..."
+          className="flex-1 border border-pink-300 rounded-full px-4 py-2 text-sm focus:outline-none focus:border-pink-500 bg-pink-50/30"
         />
-        <input
-          type="text"
-          placeholder="Masukkan Keterangan..."
-          value={keterangan}
-          onChange={(e) => setKeterangan(e.target.value)}
-          style={{ padding: '8px' }}
-        />
-        <button type="submit" style={{ padding: '10px', background: 'blue', color: 'white', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>
-          Simpan ke Database
+        <button
+          type="submit"
+          disabled={loading}
+          className="bg-pink-400 text-white px-5 py-2 rounded-full text-sm font-semibold hover:bg-pink-500 transition disabled:opacity-50 shadow-sm"
+        >
+          Kirim
         </button>
       </form>
-
-      <hr />
-
-      {/* Daftar Data yang Masuk dari MongoDB */}
-      <h3>Data dari MongoDB Atlas:</h3>
-      <ul>
-        {items.length === 0 ? (
-          <p>Belum ada data tersimpan.</p>
-        ) : (
-          items.map((item) => (
-            <li key={item._id} style={{ marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f4f4f4', padding: '8px' }}>
-              <span><b>{item.nama}</b> ({item.keterangan})</span>
-              <button 
-                onClick={() => handleDelete(item._id)} 
-                style={{ background: 'red', color: 'white', border: 'none', padding: '5px 10px', cursor: 'pointer' }}
-              >
-                Hapus
-              </button>
-            </li>
-          ))
-        )}
-      </ul>
     </main>
   );
 }
